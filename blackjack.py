@@ -10,7 +10,7 @@ window.config(bg="darkgreen")
 # --- CARTES DISPONIBLES ---
 card_names = ["2","3","4","5","6","7","8","9","10","J","Q","K","AS"]
 
-MAX_PLAYER_CARDS = 6
+MAX_PLAYER_CARDS = 5
 
 
 # --- STOCKAGE GLOBAL DES IMAGES (IMPORTANT !) ---
@@ -54,10 +54,10 @@ def hand_value(hand):
     return total
 
 # --- FRAMES ---
-dealer_frame = tk.Frame(window, bg="green", anchor="center", eight=220)
+dealer_frame = tk.Frame(window, bg="green", width=800, height=220)
 dealer_frame.place(x=650, y=120)
 
-player_frame = tk.Frame(window, bg="green", width=1000, height=220)
+player_frame = tk.Frame(window, bg="green", width=800, height=220)
 player_frame.place(x=650, y=480)
 
 dealer_labels = []
