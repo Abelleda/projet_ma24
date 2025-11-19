@@ -4,11 +4,14 @@ from PIL import Image, ImageTk
 
 window = tk.Tk()
 window.title("Black Jack")
-window.geometry("1980x1080")
+window.geometry("1920x1080")
 window.config(bg="darkgreen")
 
 # --- CARTES DISPONIBLES ---
 card_names = ["2","3","4","5","6","7","8","9","10","J","Q","K","AS"]
+
+MAX_PLAYER_CARDS = 6
+
 
 # --- STOCKAGE GLOBAL DES IMAGES (IMPORTANT !) ---
 card_images = {}
@@ -21,13 +24,13 @@ def load_card_images():
 load_card_images()
 
 # --- CREATION DU DECK ---
-def new_deck():
+def new_deck(): 
     deck = card_names * 4
     random.shuffle(deck)
     return deck
 
 # --- VALEUR DES CARTES ---
-def card_value(card):
+def card_value(card):                           
     if card in ["J", "Q", "K"]:
         return 10
     if card == "AS":
@@ -51,10 +54,10 @@ def hand_value(hand):
     return total
 
 # --- FRAMES ---
-dealer_frame = tk.Frame(window, bg="green", width=600, height=220)
+dealer_frame = tk.Frame(window, bg="green", anchor="center", eight=220)
 dealer_frame.place(x=650, y=120)
 
-player_frame = tk.Frame(window, bg="green", width=600, height=220)
+player_frame = tk.Frame(window, bg="green", width=1000, height=220)
 player_frame.place(x=650, y=480)
 
 dealer_labels = []
@@ -66,7 +69,6 @@ dealer_value_label.place(x=400, y=200)
 
 player_value_label = tk.Label(window, text="Total joueur : 0", font=("Arial", 20), bg="darkgreen", fg="white")
 player_value_label.place(x=400, y=600)
-
 
 # --- AFFICHAGE DES MAINS ---
 def show_hand(frame, hand, labels_list):
@@ -112,20 +114,24 @@ def start_game():
     hit_button.config(state="normal")
     stand_button.config(state="normal")
 
-
 # --- HIT ---
 def hit():
+    # Si le joueur a déjà le nombre max de cartes, on bloque
+    if len(player_hand) >= MAX_PLAYER_CARDS:
+        result_label.config(text=" Vous avez déjà le nombre maximal de cartes.")
+        hit_button.config(state="disabled")
+        return
+
+    # Sinon on pioche une carte
     player_hand.append(deck.pop())
     show_hand(player_frame, player_hand, player_labels)
     update_values(show_dealer_total=False)
 
+    # Si le joueur dépasse 21 -> fin de partie
     if hand_value(player_hand) > 21:
         result_label.config(text=" Vous avez dépassé 21 !")
-    elif hand_value(player_hand) > 21:
-        result_label.config(text=" Vous avez dépassé 21 !")
         hit_button.config(state="disabled")
-        stand_button.config(state="disabled")    
-
+        stand_button.config(state="disabled")
 
 # --- STAND ---
 def stand():
@@ -154,19 +160,50 @@ btn_frame = tk.Frame(window, bg="darkgreen")
 
 # placé vers la droite de la fenêtre, centré verticalement
 btn_frame.place(relx=0.85, rely=0.5, anchor="center")
-
-new_button = tk.Button(btn_frame, text="Nouvelle Partie", command=start_game, width=15)
+new_button = tk.Button(btn_frame,
+    text="Nouvelle Partie",
+    command=start_game,   # <-- la bonne fonction !
+    bg="#FF0000",         # vert foncé casino
+    fg="white",
+    activebackground="#ff0000",
+    activeforeground="#ffffff",
+    font=("Arial", 18, "bold"),
+    width=15,
+    relief="ridge",
+    bd=4
+)
 new_button.pack(pady=10)
-
-hit_button = tk.Button(btn_frame, text="Hit", command=hit, width=15)
+hit_button = tk.Button(btn_frame,
+    text="Hit",
+    command=hit,
+    bg="#004225",           # vert foncé casino
+    fg="white",
+    activebackground="#006b3c",
+    activeforeground="#ffffff",
+    font=("Arial", 18, "bold"),
+    width=15,
+    relief="ridge",
+    bd=4
+)
 hit_button.pack(pady=10)
+stand_button = tk.Button(btn_frame,
+    text="Stand",
+    command=stand,
+    bg="#004225",            # vert foncé casino
+    fg="white",
+    activebackground="#006b3c",
+    activeforeground="#ffffff",
+    font=("Arial", 18, "bold"),
+    width=15,
+    relief="ridge",
+    bd=4
+)
 
-stand_button = tk.Button(btn_frame, text="Stand", command=stand, width=15)
 stand_button.pack(pady=10)
-
 # --- RESULTAT ---
 result_label = tk.Label(window, text="", font=("Arial", 22), bg="darkgreen", fg="white")
 result_label.place(x=780, y=350)
 
 start_game()
+
 window.mainloop()
