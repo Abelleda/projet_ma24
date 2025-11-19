@@ -1,69 +1,34 @@
-# import tkinter as tk
-# from PIL import Image, ImageTk
-
-
-# window = tk.Tk()
-# window.title("Black Jack")
-# window.geometry("1980x1080")
-# image = tk.PhotoImage(file="image.png")
-# label = tk.Label(window, image=image)
-# label.pack()    
-
-
-
-# window.mainloop()
-
-
 import random
 import tkinter as tk
 from PIL import Image, ImageTk
 
-# ----------------------
-#  INITIALISATION
-# ----------------------
 window = tk.Tk()
 window.title("Black Jack")
 window.geometry("1980x1080")
+window.config(bg="darkgreen")
 
-# TABLE
-table_img = Image.open("image.png")
-table_img = table_img.resize((1980, 1080), Image.LANCZOS)
-table_photo = ImageTk.PhotoImage(table_img)
-
-table_label = tk.Label(window, image=table_photo)
-table_label.place(x=0, y=0)
-
-
-# ----------------------
-#  CHARGEMENT DES CARTES
-# ----------------------
-
-# NOMS EXACTEMENT COMME TES FICHIERS
+# --- CARTES DISPONIBLES ---
 card_names = ["2","3","4","5","6","7","8","9","10","J","Q","K","AS"]
 
+# --- STOCKAGE GLOBAL DES IMAGES (IMPORTANT !) ---
 card_images = {}
 
 def load_card_images():
     for name in card_names:
         img = Image.open(f"cards/{name}.png")
-        img = img.resize((140, 200), Image.LANCZOS)  # taille carte
-        card_images[name] = ImageTk.PhotoImage(img)
-
+        img = img.resize((140, 200), Image.LANCZOS)
+        card_images[name] = ImageTk.PhotoImage(img)   # Référence conservée
 load_card_images()
 
-
-# ----------------------
-#  LOGIQUE DU JEU
-# ----------------------
-
+# --- CREATION DU DECK ---
 def new_deck():
-    # Ici pas de couleurs ♣♥♦♠ donc on fait un deck simple
-    deck = card_names.copy() * 4  # 4 exemplaires de chaque comme vrai blackjack
+    deck = card_names * 4
     random.shuffle(deck)
     return deck
 
+# --- VALEUR DES CARTES ---
 def card_value(card):
-    if card in ["J","Q","K"]:
+    if card in ["J", "Q", "K"]:
         return 10
     if card == "AS":
         return 11
@@ -79,28 +44,33 @@ def hand_value(hand):
         else:
             total += card_value(card)
 
-    # Ajustement As = 1 si dépasse 21
     while total > 21 and aces > 0:
         total -= 10
         aces -= 1
 
     return total
 
+# --- FRAMES ---
+dealer_frame = tk.Frame(window, bg="green", width=600, height=220)
+dealer_frame.place(x=650, y=120)
 
-# ----------------------
-#  AFFICHAGE DES CARTES
-# ----------------------
-
-dealer_frame = tk.Frame(window, bg="green")
-dealer_frame.place(x=700, y=150)
-
-player_frame = tk.Frame(window, bg="green")
-player_frame.place(x=700, y=500)
+player_frame = tk.Frame(window, bg="green", width=600, height=220)
+player_frame.place(x=650, y=480)
 
 dealer_labels = []
 player_labels = []
 
+# LES SCORES
+dealer_value_label = tk.Label(window, text="Total croupier : ?", font=("Arial", 20), bg="darkgreen", fg="white")
+dealer_value_label.place(x=400, y=200)
+
+player_value_label = tk.Label(window, text="Total joueur : 0", font=("Arial", 20), bg="darkgreen", fg="white")
+player_value_label.place(x=400, y=600)
+
+
+# --- AFFICHAGE DES MAINS ---
 def show_hand(frame, hand, labels_list):
+    # Effacer les anciennes cartes
     for lbl in labels_list:
         lbl.destroy()
     labels_list.clear()
@@ -108,15 +78,22 @@ def show_hand(frame, hand, labels_list):
     x = 0
     for card in hand:
         lbl = tk.Label(frame, image=card_images[card], bg="green")
+        lbl.image = card_images[card]   # garder une référence
         lbl.place(x=x, y=0)
         labels_list.append(lbl)
         x += 150
 
+def update_values(show_dealer_total=False):
+    # total du joueur
+    player_value_label.config(text=f"Total joueur : {hand_value(player_hand)}")
 
-# ----------------------
-#  ACTIONS JEU
-# ----------------------
+    # total du croupier
+    if show_dealer_total:
+        dealer_value_label.config(text=f"Total croupier : {hand_value(dealer_hand)}")
+    else:
+        dealer_value_label.config(text="Total croupier : ?")
 
+# --- NOUVELLE PARTIE ---
 def start_game():
     global deck, player_hand, dealer_hand
 
@@ -127,47 +104,69 @@ def start_game():
     show_hand(player_frame, player_hand, player_labels)
     show_hand(dealer_frame, [dealer_hand[0]], dealer_labels)
 
+    # Met à jour les totaux au début de la partie
+    update_values(show_dealer_total=False)
+
     result_label.config(text="")
 
+    hit_button.config(state="normal")
+    stand_button.config(state="normal")
+
+
+# --- HIT ---
 def hit():
     player_hand.append(deck.pop())
     show_hand(player_frame, player_hand, player_labels)
+    update_values(show_dealer_total=False)
 
     if hand_value(player_hand) > 21:
         result_label.config(text=" Vous avez dépassé 21 !")
+    elif hand_value(player_hand) > 21:
+        result_label.config(text=" Vous avez dépassé 21 !")
+        hit_button.config(state="disabled")
+        stand_button.config(state="disabled")    
 
+
+# --- STAND ---
 def stand():
-    # Le croupier tire
     while hand_value(dealer_hand) < 17:
         dealer_hand.append(deck.pop())
 
     show_hand(dealer_frame, dealer_hand, dealer_labels)
+    show_hand(player_frame, player_hand, player_labels)
+
+    update_values(show_dealer_total=True)
 
     pv = hand_value(player_hand)
     dv = hand_value(dealer_hand)
 
     if dv > 21:
-        result_label.config(text=" Le croupier dépasse 21, vous gagnez !")
+        result_label.config(text=" Le croupier dépasse 21, vous avez gagné !")
     elif pv > dv:
-        result_label.config(text=" Vous gagnez !")
+        result_label.config(text=" Vous avez gagné !")
     elif pv < dv:
-        result_label.config(text=" Vous perdez !")
+        result_label.config(text=" Vous avez perdu !")
     else:
         result_label.config(text=" Égalité !")
 
-
-# ----------------------
-#  BOUTONS
-# ----------------------
+# --- BOUTONS ---
 btn_frame = tk.Frame(window, bg="darkgreen")
-btn_frame.place(x=820, y=400)
 
-tk.Button(btn_frame, text="Nouvelle Partie", command=start_game, width=15).pack(pady=10)
-tk.Button(btn_frame, text="Hit", command=hit, width=15).pack(pady=10)
-tk.Button(btn_frame, text="Stand", command=stand, width=15).pack(pady=10)
+# placé vers la droite de la fenêtre, centré verticalement
+btn_frame.place(relx=0.85, rely=0.5, anchor="center")
 
+new_button = tk.Button(btn_frame, text="Nouvelle Partie", command=start_game, width=15)
+new_button.pack(pady=10)
+
+hit_button = tk.Button(btn_frame, text="Hit", command=hit, width=15)
+hit_button.pack(pady=10)
+
+stand_button = tk.Button(btn_frame, text="Stand", command=stand, width=15)
+stand_button.pack(pady=10)
+
+# --- RESULTAT ---
 result_label = tk.Label(window, text="", font=("Arial", 22), bg="darkgreen", fg="white")
 result_label.place(x=780, y=350)
 
 start_game()
-
+window.mainloop()
