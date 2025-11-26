@@ -1,7 +1,32 @@
-
 import random
 import tkinter as tk
 from PIL import Image, ImageTk
+import json
+import hashlib
+
+# --------- GESTION UTILISATEURS ---------
+
+USERS_FILE = "users.json"
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+def load_users():
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+    except json.JSONDecodeError:
+        return {}
+
+def save_users():
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False, indent=2)
+
+users = load_users()
+
+# --------- FENÊTRE PRINCIPALE DU JEU ---------
 
 window = tk.Tk()
 window.title("Black Jack")
@@ -24,6 +49,7 @@ def load_card_images():
         img = Image.open(f"gui/cards/{name}.png")
         img = img.resize((140, 200), Image.LANCZOS)
         card_images[name] = ImageTk.PhotoImage(img)   # Référence conservée
+
 load_card_images()
 
 # --- CREATION DU DECK ---
@@ -72,6 +98,11 @@ dealer_value_label.place(x=400, y=200)
 
 player_value_label = tk.Label(window, text=f"Total {player_name} : 0", font=("Arial", 20), bg="darkgreen", fg="white")
 player_value_label.place(x=400, y=600)
+
+# Nom du joueur affiché dans la fenêtre de jeu
+player_name_label = tk.Label(window, text="Joueur : ?", font=("Arial", 22, "bold"),
+                             bg="darkgreen", fg="white")
+player_name_label.place(x=50, y=50)
 
 # --- AFFICHAGE DES MAINS ---
 def show_hand(frame, hand, labels_list):
@@ -208,49 +239,184 @@ stand_button.pack(pady=10)
 result_label = tk.Label(window, text="", font=("Arial", 22), bg="darkgreen", fg="white")
 result_label.place(x=780, y=350)
 
-# --- MENU D'ACCUEIL ---
-menu_frame = tk.Frame(window, bg="darkgreen")
-menu_frame.place(relx=0.5, rely=0.5, anchor="center")
+# -------------------------------------------------
+#           FENÊTRE DE MENU (LOGIN / SIGNUP)
+# -------------------------------------------------
 
-title_label = tk.Label(menu_frame, text="BLACK JACK", font=("Arial", 40, "bold"), bg="darkgreen", fg="white")
+# On cache la fenêtre principale au début
+window.withdraw()
+
+menu_window = tk.Toplevel(window)
+menu_window.title("Black Jack - Menu")
+menu_window.geometry("500x350")
+menu_window.config(bg="grey")
+
+title_label = tk.Label(menu_window, text="BLACK JACK", font=("Arial", 40, "bold"), bg="grey", fg="white")
 title_label.pack(pady=20)
 
-name_label = tk.Label(menu_frame, text="Entrez votre nom :", font=("Arial", 20), bg="darkgreen", fg="white")
-name_label.pack(pady=10)
+subtitle_label = tk.Label(menu_window, text="Veuillez vous connecter ou vous inscrire", font=("Arial", 14),
+                          bg="grey", fg="white")
+subtitle_label.pack(pady=5)
 
-name_entry = tk.Entry(menu_frame, font=("Arial", 18), width=20)
-name_entry.pack(pady=10)
+# --- FENÊTRE D'INSCRIPTION ---
+def open_signup_window():
+    signup_win = tk.Toplevel(menu_window)
+    signup_win.title("Inscription")
+    signup_win.geometry("400x300")
+    signup_win.config(bg="grey")
 
-def start_from_menu():
-    global player_name
-    entered = name_entry.get().strip()
-    if entered == "":
-        player_name = "Joueur"
-    else:
-        player_name = entered
+    tk.Label(signup_win, text="Nom d'utilisateur :", font=("Arial", 14), bg="grey", fg="white").pack(pady=5)
+    username_entry = tk.Entry(signup_win, font=("Arial", 14), width=20)
+    username_entry.pack(pady=5)
 
-    # Met à jour le label du joueur avec son nom
-    player_value_label.config(text=f"Total {player_name} : 0")
+    tk.Label(signup_win, text="Mot de passe :", font=("Arial", 14), bg="grey", fg="white").pack(pady=5)
+    password_entry = tk.Entry(signup_win, font=("Arial", 14), width=20, show="*")
+    password_entry.pack(pady=5)
 
-    # On enlève le menu
-    menu_frame.destroy()
+    tk.Label(signup_win, text="Confirmer le mot de passe :", font=("Arial", 14), bg="grey", fg="white").pack(pady=5)
+    confirm_entry = tk.Entry(signup_win, font=("Arial", 14), width=20, show="*")
+    confirm_entry.pack(pady=5)
 
-    # On lance la première partie
-    start_game()
+    message_label = tk.Label(signup_win, text="", font=("Arial", 10), bg="grey", fg="red")
+    message_label.pack(pady=5)
 
-start_button = tk.Button(menu_frame,
-    text="Commencer la partie",
-    command=start_from_menu,
+    def do_signup():
+        global player_name, users
+
+        username = username_entry.get().strip()
+        pwd = password_entry.get()
+        pwd2 = confirm_entry.get()
+
+        if username == "" or pwd == "" or pwd2 == "":
+            message_label.config(text="Tous les champs sont obligatoires.")
+            return
+
+        if " " in username:
+            message_label.config(text="Le nom ne doit pas contenir d'espace.")
+            return
+
+        if username in users:
+            message_label.config(text="Ce nom d'utilisateur existe déjà.")
+            return
+
+        if pwd != pwd2:
+            message_label.config(text="Les mots de passe ne correspondent pas.")
+            return
+
+        # Création du compte
+        users[username] = hash_password(pwd)
+        save_users()
+
+        # Connexion automatique
+        player_name = username
+        player_value_label.config(text=f"Total {player_name} : 0")
+        player_name_label.config(text=f"Joueur : {player_name}")
+
+        signup_win.destroy()
+        menu_window.destroy()
+        window.deiconify()
+        start_game()
+
+    tk.Button(signup_win,
+              text="Créer le compte",
+              command=do_signup,
+              bg="#004225",
+              fg="white",
+              activebackground="#006b3c",
+              activeforeground="#ffffff",
+              font=("Arial", 14, "bold"),
+              width=18,
+              relief="ridge",
+              bd=4).pack(pady=15)
+
+# --- FENÊTRE DE CONNEXION ---
+def open_login_window():
+    login_win = tk.Toplevel(menu_window)
+    login_win.title("Connexion")
+    login_win.geometry("400x250")
+    login_win.config(bg="grey")
+
+    tk.Label(login_win, text="Nom d'utilisateur :", font=("Arial", 14), bg="grey", fg="white").pack(pady=5)
+    username_entry = tk.Entry(login_win, font=("Arial", 14), width=20)
+    username_entry.pack(pady=5)
+
+    tk.Label(login_win, text="Mot de passe :", font=("Arial", 14), bg="grey", fg="white").pack(pady=5)
+    password_entry = tk.Entry(login_win, font=("Arial", 14), width=20, show="*")
+    password_entry.pack(pady=5)
+
+    message_label = tk.Label(login_win, text="", font=("Arial", 10), bg="grey", fg="red")
+    message_label.pack(pady=5)
+
+    def do_login():
+        global player_name
+
+        username = username_entry.get().strip()
+        pwd = password_entry.get()
+
+        if username == "" or pwd == "":
+            message_label.config(text="Tous les champs sont obligatoires.")
+            return
+
+        if username not in users:
+            message_label.config(text="Utilisateur inexistant.")
+            return
+
+        if users[username] != hash_password(pwd):
+            message_label.config(text="Mot de passe incorrect.")
+            return
+
+        # Connexion réussie
+        player_name = username
+        player_value_label.config(text=f"Total {player_name} : 0")
+        player_name_label.config(text=f"Joueur : {player_name}")
+
+        login_win.destroy()
+        menu_window.destroy()
+        window.deiconify()
+        start_game()
+
+    tk.Button(login_win,
+              text="Se connecter",
+              command=do_login,
+              bg="#004225",
+              fg="white",
+              activebackground="#006b3c",
+              activeforeground="#ffffff",
+              font=("Arial", 14, "bold"),
+              width=18,
+              relief="ridge",
+              bd=4).pack(pady=15)
+
+# --- BOUTONS MENU ---
+btn_menu_frame = tk.Frame(menu_window, bg="grey")
+btn_menu_frame.pack(pady=30)
+
+login_button = tk.Button(btn_menu_frame,
+    text="Se connecter",
+    command=open_login_window,
     bg="#004225",
     fg="white",
     activebackground="#006b3c",
     activeforeground="#ffffff",
-    font=("Arial", 20, "bold"),
-    width=20,
+    font=("Arial", 16, "bold"),
+    width=15,
     relief="ridge",
     bd=4
 )
-start_button.pack(pady=20)
+login_button.pack(side="left", padx=10)
 
-# (On ne lance plus start_game() directement, on attend le menu)
+signup_button = tk.Button(btn_menu_frame,
+    text="S'inscrire",
+    command=open_signup_window,
+    bg="#FF9900",
+    fg="white",
+    activebackground="#ffb84d",
+    activeforeground="#ffffff",
+    font=("Arial", 16, "bold"),
+    width=15,
+    relief="ridge",
+    bd=4
+)
+signup_button.pack(side="left", padx=10)
+
 window.mainloop()
