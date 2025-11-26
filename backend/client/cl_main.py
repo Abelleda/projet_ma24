@@ -1,7 +1,11 @@
 import os
+import sys
 import mysql.connector 
 import socket
 import time
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from server.sv_main import functions
 
 ### Setup ###
 mydb = None
@@ -18,55 +22,20 @@ class globals:
         password = ""
         balance = 0
         date_created = ""
-
-class functions:
-    def get_user_data(username):
-        mycursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-        result = mycursor.fetchall()
-        return {
-            "id": result[0][0],
-            "username": result[0][1],
-            "password": result[0][2],
-            "balance": result[0][3],
-            "date_created": result[0][4]
-        }
-
-    def user_exist(username):
-        mycursor = mydb.cursor()
-        mycursor.execute("SELECT * FROM users WHERE username = %s", (username,))
-        result = mycursor.fetchall()
-        if result:
-            return True
         
-        return False
-
-    def login(username: str, password: str):
-        if functions.user_exist(username):
-            user_data = functions.get_user_data(username)
-            if user_data["password"] == password:
-                globals.user.id = user_data["id"]
-                globals.user.username = user_data["username"]
-                globals.user.password = user_data["password"]
-                globals.user.balance = user_data["balance"]
-                globals.user.date_created = user_data["date_created"]
-                return True
-        
-        return False
-
-    def register(username: str, password: str):
-        mycursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password,))
-        mydb.commit()
-
-        pages.__init__()
-
 class pages:
     def login():
+        os.system('cls')
+
+        print("[Login Page]")
         username = input("Enter your username: ")
         password = input("Enter your password: ")
 
         if functions.login(username, password):
             print(f"Welcome {globals.user.username}!")
             pages.play_blackjack()
+        else:
+            pages.login()
 
     def register():
         username_passed = False
@@ -95,9 +64,13 @@ class pages:
             else:
                 print("Password missmatch.")
 
-        functions.register(username, password)
+        if functions.register(username, password):
+            pages.__init__()
 
     def play_blackjack():
+        os.system('cls')
+
+        print("[Game Page]")
         print("[1] Join game")
         print("[2] Check balance")
         
@@ -131,12 +104,7 @@ class pages:
             print("Couldnt connect to MySQL database")
             return False
 
-        finally:
-            if mydb and mydb.is_connected():
-                mydb.close()
-
-
-        #os.system('cls')
+        os.system('cls')
         
         print("[1] Login")
         print("[2] Register")
@@ -154,23 +122,3 @@ class pages:
 
 if __name__ == "__main__":
     pages.__init__()
-
-# def client_program():
-#     host = socket.gethostname()
-#     port = 5000
-
-#     client_socket = socket.socket()
-#     client_socket.connect((host, port))
-
-#     message = input(" -> ")
-#     while message.lower().strip() != 'exit':
-#         client_socket.send(message.encode())
-#         # data = client_socket.recv(1024).decode()
-
-#         # print('Received from server: ' + data)
-
-#         message = input(" -> ")
-
-#     client_socket.close()
-
-# client_program()

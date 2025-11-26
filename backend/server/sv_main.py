@@ -1,27 +1,74 @@
 import socket
+import time
+import mysql.connector
 
-cards = {
-    "2": 2,
-    "3": 3,
-    "4": 4,
-    "5": 5,
-    "6": 6,
-    "7": 7,
-    "8": 8,
-    "9": 9,
-    "10": 10,
+mydb = None
+mycursor = None
 
-    "J": 10,
-    "Q": 10,
-    "K": 10,
+class db:
+    def connect():
+        global mydb, mycursor
+        try:
+            mydb = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="",
+                database="casino"
+            )
 
-    "A": 1 or 11
-}
+            if mydb.is_connected():
+                print("Connected to MySQL database")
+                mycursor = mydb.cursor()
+                return True
 
-class DataBase:
-    pass
+        except:
+            print("Couldnt connect to MySQL database")
+            return False
 
-class BlackJack:
+class functions:
+    def get_user_data(username):
+        mycursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        result = mycursor.fetchall()
+        return {
+            "id": result[0][0],
+            "username": result[0][1],
+            "password": result[0][2],
+            "balance": result[0][3],
+            "date_created": result[0][4]
+        }
+
+    def user_exist(username):
+        mycursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+        result = mycursor.fetchall()
+        if result:
+            return True
+        
+        return False
+
+    def login(username: str, password: str):
+        print(username, password)
+        if functions.user_exist(username):
+            user_data = functions.get_user_data(username)
+            if user_data["password"] == password:
+                globals.user.id = user_data["id"]
+                globals.user.username = user_data["username"]
+                globals.user.password = user_data["password"]
+                globals.user.balance = user_data["balance"]
+                globals.user.date_created = user_data["date_created"]
+                return True
+        
+        return False
+
+    def register(username: str, password: str):
+        try:
+            mycursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, password,))
+            mydb.commit()
+
+            return True
+        except:
+            return False
+
+class Game:
     clients = {}
 
     def server_start():
@@ -41,5 +88,15 @@ class BlackJack:
         conn.close()
 
 
+
 if __name__ == '__main__':
-    BlackJack.server_program()
+    db.connect()
+    print(functions.get_user_data("awd"))
+
+    try:
+        while True:
+            # Optional: you could periodically check DB or do tasks here
+            time.sleep(1)
+            pass
+    except KeyboardInterrupt:
+        print("Exiting program...")
