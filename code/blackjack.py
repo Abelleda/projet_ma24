@@ -33,6 +33,10 @@ def create_start_window():
         # Disable the main menu "S'inscrire" button while the Toplevel is open
         senscrire_button.config(state="disabled")
         start_button.config(state="disabled")
+        try:
+            exit_btn.config(state="disabled")
+        except Exception:
+            pass
         senscrire_window = tk.Toplevel()  # <<< IMPORTANT : Toplevel, pas Tk()
         senscrire_window.title("Inscription")
         senscrire_window.geometry("400x300")
@@ -55,6 +59,7 @@ def create_start_window():
             try:
                 senscrire_button.config(state="normal")
                 start_button.config(state="normal")
+                exit_btn.config(state="normal")
             except Exception:
                 pass
             senscrire_window.destroy()
@@ -75,6 +80,11 @@ def create_start_window():
                              command=senscrire_in_game,
                              bg="#00A86B", fg="white", font=("Arial", 14), width=25)
     senscrire_button.pack(pady=20)
+
+    exit_btn = tk.Button(start_window, text="Quitter",
+                         command=start_window.destroy,
+                         bg="#AA0000", fg="white", font=("Arial", 14), width=25)
+    exit_btn.pack(pady=5)
 
     start_window.mainloop()
 
@@ -408,9 +418,15 @@ def launch_blackjack_ui():
                           bg="#00A86B",fg="white",width=25,height=2)
     start_btn.place(x=10,y=80)
 
- 
+    def on_exit():
+        if messagebox.askyesno("Quitter", "Voulez-vous quitter le jeu ?"):
+            root.destroy()
 
-   
+    exit_btn = tk.Button(root, text="Quitter",
+                         command=on_exit,
+                         bg="#AA0000", fg="white", width=25, height=2)
+    exit_btn.place(x=10, y=140)
+
     # Empty initial display
     for i in range(MAX_PLAYERS):
         update_player_display(i)
