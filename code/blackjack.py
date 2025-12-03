@@ -17,7 +17,13 @@ import tkinter as tk
 def create_start_window():
     start_window = tk.Tk()
     start_window.title("Blackjack")
-    start_window.geometry("400x300")
+    # set desired size and center the window on the screen
+    width, height = 400, 300
+    start_window.geometry(f"{width}x{height}")
+    start_window.update_idletasks()
+    x = (start_window.winfo_screenwidth() - width) // 2
+    y = (start_window.winfo_screenheight() - height) // 2
+    start_window.geometry(f"{width}x{height}+{x}+{y}")
     start_window.config(bg="#222222")
 
     label = tk.Label(start_window, text="Bienvenue dans le Blackjack",
@@ -37,9 +43,21 @@ def create_start_window():
             exit_btn.config(state="disabled")
         except Exception:
             pass
-        senscrire_window = tk.Toplevel()  # <<< IMPORTANT : Toplevel, pas Tk()
+        senscrire_window = tk.Toplevel(start_window)  # make it child of the start window
         senscrire_window.title("Inscription")
-        senscrire_window.geometry("400x300")
+        # center the Toplevel over the start window
+        width, height = 400, 300
+        senscrire_window.geometry(f"{width}x{height}")
+        senscrire_window.update_idletasks()
+        px = start_window.winfo_rootx()
+        py = start_window.winfo_rooty()
+        pw = start_window.winfo_width()
+        ph = start_window.winfo_height()
+        x = px + (pw - width) // 2
+        y = py + (ph - height) // 2
+        senscrire_window.geometry(f"{width}x{height}+{x}+{y}")
+        senscrire_window.transient(start_window)
+        senscrire_window.grab_set()
         senscrire_window.config(bg="#222222")
 
         # Exemple contenu
