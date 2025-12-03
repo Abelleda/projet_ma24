@@ -1,3 +1,7 @@
+# Author: Adel Medaric
+# Name: client.py
+# Date: 03.12.2025
+
 import socket
 import json
 
@@ -21,9 +25,47 @@ def send(data):
 # ---------------- CLIENT PAGES ----------------
 def game_page():
     global conn
+    bet = 0
     print("[1] Play Blackjack")
+    print("[2] Disconnect")
 
     choice = input()
+
+    if choice == "1":
+        response = send({
+            "action": "join_game"
+        })
+
+        if response["status"] == "success":
+            while True:
+                try:
+                    data = conn.recv(2048).decode()
+                    if not data:
+                        break
+
+                    game_response = json.loads(data)
+                    if game_response.get("action") == "game_start":
+                        players = game_response.get("players")
+                        print(f"Game starting in 30 seconds please enter your bet")
+                        while not bet:
+                            temp_bet = input()
+                            data = send({
+                                "action": "get_data"
+                            })
+                            try:
+                                temp_bet = int(temp_bet)
+                                temp_balance = int(data["balance"])
+                            except:
+                                pass
+                        
+
+
+
+                    if game_response.get("action") == "game_notif":
+                        print(game_response.get("description"))
+
+                except:
+                    break
 
     if choice == "2":
         response = send({
