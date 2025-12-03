@@ -2,23 +2,22 @@ import random
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-import hashlib
+
 
 # ---------------- CONFIG ----------------
 MAX_PLAYERS = 3
 CARD_NAMES = ["2","3","4","5","6","7","8","9","10","J","Q","K","AS"]
-CARD_IMG_SIZE = (110, 160)
+CARD_IMG_SIZE = (80, 120)
 WINDOW_W, WINDOW_H = 1600, 900
 
-# ---------------- UTIL ----------------
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-# ---------------- Start window ----------------
+
+import tkinter as tk
+
 def create_start_window():
     start_window = tk.Tk()
     start_window.title("Blackjack")
-    start_window.geometry("400x200")
+    start_window.geometry("400x300")
     start_window.config(bg="#222222")
 
     label = tk.Label(start_window, text="Bienvenue dans le Blackjack",
@@ -27,14 +26,58 @@ def create_start_window():
 
     def open_main_game():
         start_window.destroy()
-        launch_blackjack_ui()
+        
+        launch_blackjack_ui()   # Ton jeu principal
+
+    def senscrire_in_game():
+        # Disable the main menu "S'inscrire" button while the Toplevel is open
+        senscrire_button.config(state="disabled")
+        start_button.config(state="disabled")
+        senscrire_window = tk.Toplevel()  # <<< IMPORTANT : Toplevel, pas Tk()
+        senscrire_window.title("Inscription")
+        senscrire_window.geometry("400x300")
+        senscrire_window.config(bg="#222222")
+
+        # Exemple contenu
+        tk.Label(senscrire_window, text="Créer un compte",
+                 bg="#222222", fg="white", font=("Arial", 16, "bold")).pack(pady=20)
+
+        tk.Label(senscrire_window, text="Nom d'utilisateur :",
+                 bg="#222222", fg="white", font=("Arial", 12)).pack(pady=5)
+        tk.Entry(senscrire_window, width=30).pack(pady=10)
+
+        tk.Label(senscrire_window, text="Mot de passe :",
+                 bg="#222222", fg="white", font=("Arial", 12)).pack(pady=5)
+        tk.Entry(senscrire_window, width=30, show="*").pack(pady=10)
+
+        # When the registration window is closed, re-enable the main "S'inscrire" button
+        def on_close():
+            try:
+                senscrire_button.config(state="normal")
+                start_button.config(state="normal")
+            except Exception:
+                pass
+            senscrire_window.destroy()
+
+        senscrire_window.protocol("WM_DELETE_WINDOW", on_close)
+
+        tk.Button(senscrire_window, text="Fermer",
+                  command=on_close,
+                  bg="#AA0000", fg="white").pack(pady=10)
+
 
     start_button = tk.Button(start_window, text="Commencer",
                              command=open_main_game,
                              bg="#00A86B", fg="white", font=("Arial", 14), width=25)
     start_button.pack(pady=20)
 
+    senscrire_button = tk.Button(start_window, text="S'inscrire",
+                             command=senscrire_in_game,
+                             bg="#00A86B", fg="white", font=("Arial", 14), width=25)
+    senscrire_button.pack(pady=20)
+
     start_window.mainloop()
+
 
 # ---------------- Main UI ----------------
 def launch_blackjack_ui():
@@ -110,11 +153,11 @@ def launch_blackjack_ui():
 
     # ---------- Dealer ----------
     dealer_frame = tk.Frame(root, bg="#262626", bd=4, relief="raised")
-    dealer_frame.place(relx=DEALER_POS[0], rely=DEALER_POS[1], anchor="center", width=420, height=240)
+    dealer_frame.place(relx=DEALER_POS[0], rely=DEALER_POS[1], anchor="center", width=420, height=250)
     tk.Label(dealer_frame,text="CROUPIER",bg="#262626",fg="white",font=("Arial",16,"bold")).place(x=10,y=6)
     dealer_total_lbl = tk.Label(dealer_frame,text="Total : ?",bg="#262626",fg="white",font=("Arial",14))
     dealer_total_lbl.place(x=10,y=42)
-    dealer_canvas = tk.Canvas(dealer_frame,width=400,height=160,bg="#262626",highlightthickness=0)
+    dealer_canvas = tk.Canvas(dealer_frame,width=400,height=120,bg="#262626",highlightthickness=0)
     dealer_canvas.place(x=10,y=68)
 
     # ---------- Players ----------
@@ -129,7 +172,7 @@ def launch_blackjack_ui():
     for i in range(MAX_PLAYERS):
         fx,fy = PLAYER_POSITIONS[i]
         frame = tk.Frame(root,bg="#005500",bd=3,relief="ridge")
-        frame.place(relx=fx,rely=fy,anchor="center",width=300,height=220)
+        frame.place(relx=fx,rely=fy,anchor="center",width=300,height=250)
 
         name_lbl = tk.Label(frame,text=f"Slot {i+1}",bg="#005500",fg="white",font=("Arial",12,"bold"))
         name_lbl.place(x=10,y=6)
@@ -139,15 +182,17 @@ def launch_blackjack_ui():
 
         canvas = tk.Canvas(frame,width=280,height=110,bg="#005500",highlightthickness=0)
         canvas.place(x=10,y=58)
+        # adjust player canvas height to match smaller card images
+        canvas.config(height=130)
 
         res_lbl = tk.Label(frame,text="",bg="#005500",fg="yellow",font=("Arial",10,"bold"))
-        res_lbl.place(x=10,y=176)
+        res_lbl.place(x=10,y=190)
 
         hit_btn = tk.Button(frame,text="Hit",width=7)
-        hit_btn.place(x=170,y=170)
+        hit_btn.place(x=170,y=200)
 
         stand_btn = tk.Button(frame,text="Stand",width=7)
-        stand_btn.place(x=230,y=170)
+        stand_btn.place(x=230,y=200)
 
         player_frames.append(frame)
         player_canvases.append(canvas)
