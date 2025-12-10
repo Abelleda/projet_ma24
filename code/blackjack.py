@@ -8,7 +8,7 @@ from PIL import Image, ImageTk, ImageDraw, ImageFont
 MAX_PLAYERS = 3
 CARD_NAMES = ["2","3","4","5","6","7","8","9","10","J","Q","K","AS"]
 CARD_IMG_SIZE = (80, 120)
-WINDOW_W, WINDOW_H = 1600, 900
+WINDOW_W, WINDOW_H = 1980, 1080
 
 
 
@@ -18,7 +18,7 @@ def create_start_window():
     start_window = tk.Tk()
     start_window.title("Blackjack")
     # set desired size and center the window on the screen
-    width, height = 400, 300
+    width, height = 1920, 1080
     start_window.geometry(f"{width}x{height}")
     start_window.update_idletasks()
     x = (start_window.winfo_screenwidth() - width) // 2
@@ -26,9 +26,13 @@ def create_start_window():
     start_window.geometry(f"{width}x{height}+{x}+{y}")
     start_window.config(bg="#222222")
 
-    label = tk.Label(start_window, text="Bienvenue dans le Blackjack",
+    # center container for start widgets
+    center_frame = tk.Frame(start_window, bg="#222222")
+    center_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+    label = tk.Label(center_frame, text="Bienvenue dans le Blackjack",
                      bg="#222222", fg="white", font=("Arial", 16, "bold"))
-    label.pack(pady=20)
+    label.pack(pady=(0,20))
 
     def open_main_game():
         start_window.destroy()
@@ -89,20 +93,20 @@ def create_start_window():
                   bg="#AA0000", fg="white").pack(pady=10)
 
 
-    start_button = tk.Button(start_window, text="Commencer",
+    start_button = tk.Button(center_frame, text="Commencer",
                              command=open_main_game,
                              bg="#00A86B", fg="white", font=("Arial", 14), width=25)
-    start_button.pack(pady=20)
+    start_button.pack(pady=6)
 
-    senscrire_button = tk.Button(start_window, text="S'inscrire",
+    senscrire_button = tk.Button(center_frame, text="S'inscrire",
                              command=senscrire_in_game,
                              bg="#00A86B", fg="white", font=("Arial", 14), width=25)
-    senscrire_button.pack(pady=20)
+    senscrire_button.pack(pady=6)
 
-    exit_btn = tk.Button(start_window, text="Quitter",
+    exit_btn = tk.Button(center_frame, text="Quitter",
                          command=start_window.destroy,
                          bg="#AA0000", fg="white", font=("Arial", 14), width=25)
-    exit_btn.pack(pady=5)
+    exit_btn.pack(pady=(6,0))
 
     start_window.mainloop()
 
@@ -111,8 +115,23 @@ def create_start_window():
 def launch_blackjack_ui():
     root = tk.Tk()
     root.title("Blackjack - Table Ovale (Multijoueur Simultané)")
-    root.geometry(f"{WINDOW_W}x{WINDOW_H}")
+    # start the game fullscreen on Windows; allow F11 to toggle and Esc to exit fullscreen
     root.config(bg="#004d00")
+    fullscreen = True
+    root.attributes("-fullscreen", True)
+
+    def toggle_fullscreen(event=None):
+        nonlocal fullscreen
+        fullscreen = not fullscreen
+        root.attributes("-fullscreen", fullscreen)
+
+    def exit_fullscreen(event=None):
+        nonlocal fullscreen
+        fullscreen = False
+        root.attributes("-fullscreen", False)
+
+    root.bind("<F11>", toggle_fullscreen)
+    root.bind("<Escape>", exit_fullscreen)
 
     # State
     active_players = []
