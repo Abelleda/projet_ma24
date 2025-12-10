@@ -26,12 +26,34 @@ def create_start_window():
     start_window.geometry(f"{width}x{height}+{x}+{y}")
     start_window.config(bg="#222222")
 
-    # center container for start widgets
-    center_frame = tk.Frame(start_window, bg="#222222")
+    # Fullscreen background image behind widgets (tries common locations)
+    bg_label = None
+    try:
+        bg_img = None
+        for p in ("gui/CasinoImage.png", "CasinoImage.png"):
+            try:
+                bg_img = Image.open(p).convert("RGBA")
+                break
+            except Exception:
+                bg_img = None
+        if bg_img is not None:
+            # Resize to window size and display as background
+            bg_img = bg_img.resize((width, height), Image.LANCZOS)
+            bg_tk = ImageTk.PhotoImage(bg_img)
+            bg_label = tk.Label(start_window, image=bg_tk)
+            bg_label.image = bg_tk  # keep reference
+            bg_label.place(x=0, y=0, width=width, height=height)
+            bg_label.lower()
+    except Exception:
+        bg_label = None
+
+    # center container for start widgets — parent it to bg_label when available so widgets sit on top of image
+    parent_for_center = bg_label if bg_label is not None else start_window
+    center_frame = tk.Frame(parent_for_center,bg="", bd=0)
     center_frame.place(relx=0.5, rely=0.5, anchor="center")
 
     label = tk.Label(center_frame, text="Bienvenue dans le Blackjack",
-                     bg="#222222", fg="white", font=("Arial", 16, "bold"))
+                     bg="grey",fg="white", font=("Arial", 16, "bold"))
     label.pack(pady=(0,20))
 
     def open_main_game():
@@ -39,74 +61,18 @@ def create_start_window():
         
         launch_blackjack_ui()   # Ton jeu principal
 
-    def senscrire_in_game():
-        # Disable the main menu "S'inscrire" button while the Toplevel is open
-        senscrire_button.config(state="disabled")
-        start_button.config(state="disabled")
-        try:
-            exit_btn.config(state="disabled")
-        except Exception:
-            pass
-        senscrire_window = tk.Toplevel(start_window)  # make it child of the start window
-        senscrire_window.title("Inscription")
-        # center the Toplevel over the start window
-        width, height = 400, 300
-        senscrire_window.geometry(f"{width}x{height}")
-        senscrire_window.update_idletasks()
-        px = start_window.winfo_rootx()
-        py = start_window.winfo_rooty()
-        pw = start_window.winfo_width()
-        ph = start_window.winfo_height()
-        x = px + (pw - width) // 2
-        y = py + (ph - height) // 2
-        senscrire_window.geometry(f"{width}x{height}+{x}+{y}")
-        senscrire_window.transient(start_window)
-        senscrire_window.grab_set()
-        senscrire_window.config(bg="#222222")
-
-        # Exemple contenu
-        tk.Label(senscrire_window, text="Créer un compte",
-                 bg="#222222", fg="white", font=("Arial", 16, "bold")).pack(pady=20)
-
-        tk.Label(senscrire_window, text="Nom d'utilisateur :",
-                 bg="#222222", fg="white", font=("Arial", 12)).pack(pady=5)
-        tk.Entry(senscrire_window, width=30).pack(pady=10)
-
-        tk.Label(senscrire_window, text="Mot de passe :",
-                 bg="#222222", fg="white", font=("Arial", 12)).pack(pady=5)
-        tk.Entry(senscrire_window, width=30, show="*").pack(pady=10)
-
-        # When the registration window is closed, re-enable the main "S'inscrire" button
-        def on_close():
-            try:
-                senscrire_button.config(state="normal")
-                start_button.config(state="normal")
-                exit_btn.config(state="normal")
-            except Exception:
-                pass
-            senscrire_window.destroy()
-
-        senscrire_window.protocol("WM_DELETE_WINDOW", on_close)
-
-        tk.Button(senscrire_window, text="Fermer",
-                  command=on_close,
-                  bg="#AA0000", fg="white").pack(pady=10)
-
-
+    
     start_button = tk.Button(center_frame, text="Commencer",
                              command=open_main_game,
                              bg="#00A86B", fg="white", font=("Arial", 14), width=25)
     start_button.pack(pady=6)
 
-    senscrire_button = tk.Button(center_frame, text="S'inscrire",
-                             command=senscrire_in_game,
-                             bg="#00A86B", fg="white", font=("Arial", 14), width=25)
-    senscrire_button.pack(pady=6)
-
+    
     exit_btn = tk.Button(center_frame, text="Quitter",
                          command=start_window.destroy,
                          bg="#AA0000", fg="white", font=("Arial", 14), width=25)
     exit_btn.pack(pady=(6,0))
+
 
     start_window.mainloop()
 
@@ -120,18 +86,26 @@ def launch_blackjack_ui():
     fullscreen = True
     root.attributes("-fullscreen", True)
 
-    def toggle_fullscreen(event=None):
-        nonlocal fullscreen
-        fullscreen = not fullscreen
-        root.attributes("-fullscreen", fullscreen)
-
-    def exit_fullscreen(event=None):
-        nonlocal fullscreen
-        fullscreen = False
-        root.attributes("-fullscreen", False)
-
-    root.bind("<F11>", toggle_fullscreen)
-    root.bind("<Escape>", exit_fullscreen)
+    # Fullscreen background image for main game (tries common locations). keep reference to avoid GC.
+    try:
+        root.update_idletasks()
+        sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+        bg_img = None
+        for p in ("gui/CasinoMain.png", "CasinoMain.png"):
+            try:
+                bg_img = Image.open(p).convert("RGBA")
+                break
+            except Exception:
+                bg_img = None
+        if bg_img is not None:
+            bg_img = bg_img.resize((sw, sh), Image.LANCZOS)
+            bg_tk = ImageTk.PhotoImage(bg_img)
+            bg_label = tk.Label(root, image=bg_tk)
+            bg_label.image = bg_tk
+            bg_label.place(x=0, y=0, width=sw, height=sh)
+            bg_label.lower()
+    except Exception:
+        pass
 
     # State
     active_players = []
@@ -177,16 +151,6 @@ def launch_blackjack_ui():
 
     load_card_images()
 
-    # ---------- Table ----------
-    def draw_oval_table(width=1200, height=600):
-        img = Image.new("RGBA",(width,height),(0,0,0,0))
-        draw = ImageDraw.Draw(img)
-        draw.ellipse((0,0,width,height), fill="#006600", outline="#003300", width=8)
-        return ImageTk.PhotoImage(img)
-
-    table_img = draw_oval_table()
-    table_label = tk.Label(root, image=table_img, bg="#004d00")
-    table_label.place(relx=0.5, rely=0.53, anchor="center")
 
     # ---------- Positions ----------
     PLAYER_POSITIONS = [
