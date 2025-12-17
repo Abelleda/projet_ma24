@@ -114,6 +114,7 @@ def launch_blackjack_ui():
     dealer_hand = []
     game_in_progress = False
     card_images = {}
+    scheduled_restart_id = None
 
     # ---------- Images ----------
     def make_placeholder_image(name, size=CARD_IMG_SIZE):
@@ -165,9 +166,12 @@ def launch_blackjack_ui():
     # ---------- Dealer ----------
     dealer_frame = tk.Frame(root, bg="#262626", bd=4, relief="raised")
     dealer_frame.place(relx=DEALER_POS[0], rely=DEALER_POS[1], anchor="center", width=420, height=250)
-    tk.Label(dealer_frame,text="CROUPIER",bg="#262626",fg="white",font=("Arial",16,"bold")).place(x=10,y=6)
+    tk.Label(dealer_frame,text="CROUPIER",bg="#262626",fg="white",font=("Arial",16,"bold")).place(x=140,y=6)
     dealer_total_lbl = tk.Label(dealer_frame,text="Total : ?",bg="#262626",fg="white",font=("Arial",14))
-    dealer_total_lbl.place(x=10,y=42)
+    dealer_total_lbl.place(x=10,y=10)
+    # label under dealer total showing per-player results summary (restored)
+    dealer_result_lbl = tk.Label(dealer_frame, text="", bg="#262626", fg="yellow", font=("Arial",11,"bold"))
+    dealer_result_lbl.place(x=10, y=42)
     dealer_canvas = tk.Canvas(dealer_frame,width=400,height=120,bg="#262626",highlightthickness=0)
     dealer_canvas.place(x=10,y=68)
 
@@ -323,7 +327,7 @@ def launch_blackjack_ui():
         root.after(300, dealer_play)
 
     def dealer_play():
-        nonlocal deck, dealer_hand, game_in_progress
+        nonlocal deck, dealer_hand, game_in_progress, scheduled_restart_id
         disable_controls()
         update_dealer_display(hide=False)
 
@@ -353,7 +357,22 @@ def launch_blackjack_ui():
             s['result']=f"{res}"
             player_result_labels[idx].config(text=s['result'])
 
+        # build and show a short summary under dealer total (e.g. "Joueur 1:Gagné, Joueur 2:Perdu")
+        try:
+            summary = ", ".join([f"{u}:{player_states[u]['result']}" for u in active_players])
+            dealer_result_lbl.config(text=summary)
+        except Exception:
+            pass
+        
+
         game_in_progress=False
+        # Annuler un éventuel timer précédent puis programmer une nouvelle partie dans 10s (10000 ms)
+        try:
+            if scheduled_restart_id is not None:
+                root.after_cancel(scheduled_restart_id)
+        except Exception:
+            pass
+        scheduled_restart_id = root.after(10000, lambda: start_simple_game())
         
 
     def hit(idx):
@@ -386,10 +405,28 @@ def launch_blackjack_ui():
         player_stand_buttons[i].config(command=lambda i=i: stand(i))
 
     def start_simple_game():
-        nonlocal active_players, player_states, game_in_progress, deck, dealer_hand
+        nonlocal active_players, player_states, game_in_progress, deck, dealer_hand, scheduled_restart_id
+        # Si un redémarrage automatique est programmé, l'annuler (l'utilisateur a lancé manuellement)
+        try:
+            if scheduled_restart_id is not None:
+                root.after_cancel(scheduled_restart_id)
+                scheduled_restart_id = None
+        except Exception:
+            pass
+        # reset dealer UI immediately so old total/result doesn't persist
+        try:
+            dealer_total_lbl.config(text="Total : ?")
+            dealer_canvas.delete("all")
+            dealer_result_lbl.config(text="")
+             # clear previous player displays/results
+            for i in range(MAX_PLAYERS):
+                 player_result_labels[i].config(text="")
+                 player_canvases[i].delete("all")
+        except Exception:
+             pass
         active_players=[f"Joueur {i+1}" for i in range(MAX_PLAYERS)]
         player_states={}
-
+ 
         for i,u in enumerate(active_players):
             player_states[u]={
                 'hand':[],
@@ -397,19 +434,19 @@ def launch_blackjack_ui():
                 'busted':False,
                 'result':""
             }
-
+ 
             #  Ajout important : Réactiver les boutons AVANT la nouvelle main
             player_hit_buttons[i].config(state="normal")
             player_stand_buttons[i].config(state="normal")
-
+ 
             update_player_display(i)
-
+ 
         game_in_progress=True
         deck=[]
         dealer_hand=[]
-
+ 
         deal_initial()
-
+ 
         root.after(50, enable_controls)
 
        
