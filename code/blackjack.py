@@ -115,6 +115,8 @@ def launch_blackjack_ui():
     game_in_progress = False
     card_images = {}
     scheduled_restart_id = None
+    # registration tracking: per-slot whether the human at that slot has "s'inscrit"
+    registered_flags = [False] * MAX_PLAYERS
 
     # ---------- Images ----------
     def make_placeholder_image(name, size=CARD_IMG_SIZE):
@@ -183,6 +185,7 @@ def launch_blackjack_ui():
     player_result_labels=[]
     player_hit_buttons=[]
     player_stand_buttons=[]
+    player_register_buttons=[]
 
     for i in range(MAX_PLAYERS):
         fx,fy = PLAYER_POSITIONS[i]
@@ -208,6 +211,9 @@ def launch_blackjack_ui():
 
         stand_btn = tk.Button(frame,text="Stand",width=7)
         stand_btn.place(x=230,y=200)
+        # registration button to sign up this slot for the next game
+        reg_btn = tk.Button(frame, text="S'inscrire", width=10)
+        reg_btn.place(x=10, y=200)
 
         player_frames.append(frame)
         player_canvases.append(canvas)
@@ -216,6 +222,7 @@ def launch_blackjack_ui():
         player_result_labels.append(res_lbl)
         player_hit_buttons.append(hit_btn)
         player_stand_buttons.append(stand_btn)
+        player_register_buttons.append(reg_btn)
 
     # ---------- Deck ----------
     def new_deck():
@@ -249,22 +256,46 @@ def launch_blackjack_ui():
             x+=CARD_IMG_SIZE[0]-30
 
     def update_player_display(idx):
-        if idx>=len(active_players):
+        # If this slot is NOT registered, clear the slot and disable controls.
+        if not registered_flags[idx]:
             player_name_labels[idx].config(text=f"Slot {idx+1}")
             player_total_labels[idx].config(text="Total : ?")
             player_result_labels[idx].config(text="")
             player_canvases[idx].delete("all")
+            player_hit_buttons[idx].config(state="disabled")
+            player_stand_buttons[idx].config(state="disabled")
             return
 
-        u = active_players[idx]
-        st = player_states[u]
+        # Registered slot: show player name and, if a game exists, the hand and result.
+        u = f"Joueur {idx+1}"
         player_name_labels[idx].config(text=u)
+        st = player_states.get(u)
+        if st is None:
+            # registered but no active game yet
+            player_canvases[idx].delete("all")
+            player_total_labels[idx].config(text="Total : ?")
+            player_result_labels[idx].config(text="")
+            player_hit_buttons[idx].config(state="disabled")
+            player_stand_buttons[idx].config(state="disabled")
+            return
+
+        # show hand and totals
         draw_hand_on_canvas(player_canvases[idx], st['hand'])
         player_total_labels[idx].config(text=f"Total : {hand_value(st['hand'])}")
+        if st['busted']:
+            player_result_labels[idx].config(text="Bust")
+        elif st['stood']:
+            player_result_labels[idx].config(text="Stand")
+        else:
+            player_result_labels[idx].config(text="")
 
-        if st['busted']: player_result_labels[idx].config(text="Bust")
-        elif st['stood']: player_result_labels[idx].config(text="Stand")
-        else: player_result_labels[idx].config(text="")
+        # enable/disable buttons based on state
+        if game_in_progress and not st['stood'] and not st['busted']:
+            player_hit_buttons[idx].config(state="normal")
+            player_stand_buttons[idx].config(state="normal")
+        else:
+            player_hit_buttons[idx].config(state="disabled")
+            player_stand_buttons[idx].config(state="disabled")
 
     def update_dealer_display(hide=True):
         dealer_canvas.delete("all")
@@ -288,14 +319,20 @@ def launch_blackjack_ui():
 
     # ---------- Game Logic ----------
     def enable_controls():
-        for idx,u in enumerate(active_players):
-            st = player_states[u]
-            if game_in_progress and not st['stood'] and not st['busted']:
-                player_hit_buttons[idx].config(state="normal")
-                player_stand_buttons[idx].config(state="normal")
+        # Enable hit/stand only for slots that are registered and still active in the round.
+        for slot_idx in range(MAX_PLAYERS):
+            if not registered_flags[slot_idx]:
+                player_hit_buttons[slot_idx].config(state="disabled")
+                player_stand_buttons[slot_idx].config(state="disabled")
+                continue
+            u = f"Joueur {slot_idx+1}"
+            st = player_states.get(u)
+            if st and game_in_progress and not st['stood'] and not st['busted']:
+                player_hit_buttons[slot_idx].config(state="normal")
+                player_stand_buttons[slot_idx].config(state="normal")
             else:
-                player_hit_buttons[idx].config(state="disabled")
-                player_stand_buttons[idx].config(state="disabled")
+                player_hit_buttons[slot_idx].config(state="disabled")
+                player_stand_buttons[slot_idx].config(state="disabled")
 
     def disable_controls():
         for b in player_hit_buttons+player_stand_buttons:
@@ -372,14 +409,27 @@ def launch_blackjack_ui():
                 root.after_cancel(scheduled_restart_id)
         except Exception:
             pass
+        # allow players to change registrations while waiting for the next automated round
+        for i,btn in enumerate(player_register_buttons):
+            try:
+                btn.config(state="normal")
+            except Exception:
+                pass
+        try:
+            start_btn.config(state=("normal" if any(registered_flags) else "disabled"))
+        except Exception:
+            pass
+
         scheduled_restart_id = root.after(10000, lambda: start_simple_game())
         
 
     def hit(idx):
         nonlocal deck
-        if idx>=len(active_players): return
-        u=active_players[idx]
-        s=player_states[u]
+        # idx here is the slot index (0..MAX_PLAYERS-1)
+        u = f"Joueur {idx+1}"
+        if u not in player_states:
+            return
+        s = player_states[u]
         if s['stood'] or s['busted'] or not game_in_progress:
             return
         if not deck: deck=new_deck()
@@ -391,9 +441,11 @@ def launch_blackjack_ui():
         check_end()
 
     def stand(idx):
-        if idx>=len(active_players): return
-        u=active_players[idx]
-        s=player_states[u]
+        # idx is slot index
+        u = f"Joueur {idx+1}"
+        if u not in player_states:
+            return
+        s = player_states[u]
         s['stood']=True
         update_player_display(idx)
         enable_controls()
@@ -401,8 +453,35 @@ def launch_blackjack_ui():
 
     # ---------- Buttons callbacks ----------
     for i in range(MAX_PLAYERS):
+        # bind hit/stand using slot index (0-based)
         player_hit_buttons[i].config(command=lambda i=i: hit(i))
         player_stand_buttons[i].config(command=lambda i=i: stand(i))
+        # initially disable hit/stand until a game starts and the slot is registered
+        player_hit_buttons[i].config(state="disabled")
+        player_stand_buttons[i].config(state="disabled")
+
+    # registration toggle for each slot
+    def toggle_registration(slot_idx):
+        nonlocal registered_flags
+        # do not allow changing registration during an active game
+        if game_in_progress:
+            return
+        registered_flags[slot_idx] = not registered_flags[slot_idx]
+        btn = player_register_buttons[slot_idx]
+        if registered_flags[slot_idx]:
+            btn.config(text="Désinscrire")
+        else:
+            btn.config(text="S'inscrire")
+        update_player_display(slot_idx)
+        # enable/disable start button if present
+        try:
+            # start_btn may not be defined yet while frames are created; ignore if not available
+            start_btn.config(state=("normal" if any(registered_flags) else "disabled"))
+        except Exception:
+            pass
+
+    for i in range(MAX_PLAYERS):
+        player_register_buttons[i].config(command=lambda i=i: toggle_registration(i))
 
     def start_simple_game():
         nonlocal active_players, player_states, game_in_progress, deck, dealer_hand, scheduled_restart_id
@@ -424,27 +503,39 @@ def launch_blackjack_ui():
                  player_canvases[i].delete("all")
         except Exception:
              pass
-        active_players=[f"Joueur {i+1}" for i in range(MAX_PLAYERS)]
-        player_states={}
- 
-        for i,u in enumerate(active_players):
-            player_states[u]={
+        # Only include registered slots as active players for this round
+        active_players = [f"Joueur {i+1}" for i in range(MAX_PLAYERS) if registered_flags[i]]
+        player_states = {}
+
+        for slot_idx in range(MAX_PLAYERS):
+            if not registered_flags[slot_idx]:
+                # ensure display reflects unregistered status
+                update_player_display(slot_idx)
+                continue
+            u = f"Joueur {slot_idx+1}"
+            player_states[u] = {
                 'hand':[],
                 'stood':False,
                 'busted':False,
                 'result':""
             }
- 
-            #  Ajout important : Réactiver les boutons AVANT la nouvelle main
-            player_hit_buttons[i].config(state="normal")
-            player_stand_buttons[i].config(state="normal")
- 
-            update_player_display(i)
+            # disable registration changes during the round
+            try:
+                player_register_buttons[slot_idx].config(state="disabled")
+            except Exception:
+                pass
+            update_player_display(slot_idx)
  
         game_in_progress=True
         deck=[]
         dealer_hand=[]
  
+        # ensure start button disabled while game running
+        try:
+            start_btn.config(state="disabled")
+        except Exception:
+            pass
+
         deal_initial()
  
         root.after(50, enable_controls)
@@ -453,8 +544,14 @@ def launch_blackjack_ui():
 
     start_btn = tk.Button(root, text="Commencer une nouvelle partie",
                           command=start_simple_game,
-                          bg="#00A86B",fg="white",width=25,height=2)
+                          bg="#00A86B",fg="white",width=25,height=2,
+                          state="disabled")
     start_btn.place(x=10,y=80)
+    # ensure initial enabled/disabled state matches current registrations
+    try:
+        start_btn.config(state=("normal" if any(registered_flags) else "disabled"))
+    except Exception:
+        pass
 
     def on_exit():
         if messagebox.askyesno("Quitter", "Voulez-vous quitter le jeu ?"):
