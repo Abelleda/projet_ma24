@@ -9,7 +9,6 @@ import mysql.connector
 import bcrypt
 
 mydb = None
-mycursor = None
 
 clients = {}
 game_clients = {}
@@ -19,15 +18,15 @@ max_bet = 500
 
 # Database
 def connect_db():
-    global mydb, mycursor
+    global mydb
     try:
         mydb = mysql.connector.connect(
             host="localhost",
             user="root",
             password="",
-            database="casino"
+            database="casino",
+            autocommit=True
         )
-        mycursor = mydb.cursor()
         print("[SERVER] Connected to MySQL")
 
     except Exception as e:
@@ -36,12 +35,19 @@ def connect_db():
 
 # Functions
 def user_exist(username):
+    global mydb
+    mycursor = mydb.cursor(buffered=True)
     mycursor.execute("SELECT id FROM users WHERE username=%s", (username,))
-    return mycursor.fetchone() is not None
+    exists = mycursor.fetchone() is not None
+    mycursor.close()
+    return exists
 
 def get_user(username):
+    global mydb
+    mycursor = mydb.cursor(buffered=True)
     mycursor.execute("SELECT * FROM users WHERE username=%s", (username,))
     row = mycursor.fetchone()
+    mycursor.close()
     if row:
         return {
             "id": row[0],
@@ -50,12 +56,16 @@ def get_user(username):
             "balance": row[3],
             "date_created": row[4]
         }
+    
     return None
 
 def register_user(username, password):
+    global mydb
     try:
+        mycursor = mydb.cursor(buffered=True)
         mycursor.execute("INSERT INTO users(username, password) VALUES (%s,%s)", (username, password))
         mydb.commit()
+        mycursor.close()
         return True
     except:
         return False
@@ -75,13 +85,12 @@ def hash_password(password):
 def verify_password(password, stored_password):
     return bcrypt.checkpw(password.encode(), stored_password.encode())
 
-
-def send_notif_to_all_players(description):
+def update_clients_ui():
     for client in game_clients:
         try:
             client.send(json.dumps({
-                "action": "game_notif",
-                "description": description
+                "action": "ui_update",
+                "players": game_clients
             }).encode())
         except:
             pass
@@ -96,7 +105,7 @@ def broadcast_game_start():
         except:
             pass
 
-    print("[SERVER] Game is starting with 5 players!")
+    print(f"[SERVER] Game is starting with {game_clients}")
 ###
 
 # Client thread
@@ -118,7 +127,7 @@ def handle_client(conn, addr):
                 if result:
                     username = result["username"]
                     if username in clients.values():
-                        conn.send(json.dumps({"status": "failed", "description": "Already connected"}).encode())
+                        conn.send(json.dumps({"status": "failed", "description": "User already connected"}).encode())
                     else:
                         clients[conn] = username
                         conn.send(json.dumps({"status": "success", "user": username}).encode())
@@ -138,16 +147,20 @@ def handle_client(conn, addr):
             # JOIN GAME
             elif action == "join_game":
                 username = clients[conn]
+                bet = request.get("bet")
 
                 if len(game_clients) < 2:
-                    game_clients[conn] = username
-                    print(f"[SERVER] Player '{username}' joined the game")
+                    game_clients[conn] = {
+                        "username": username,
+                        "bet": bet
+                    }
+                    print(f"[SERVER] Player '{username}' with: {bet}$ of bet joined the game")
                     conn.send(json.dumps({
                         "status": "success",
                         "description": "Successfully joined the game"
                     }).encode())
 
-                    send_notif_to_all_players(f"{game_clients[conn]} joined")
+                    update_clients_ui(game_clients)
                     
                     if len(game_clients) == 2:
                         broadcast_game_start()
@@ -170,7 +183,7 @@ def handle_client(conn, addr):
                     conn.send(json.dumps({
                         "status": "success",
                         "data": data
-                    }))
+                    }, default=str).encode())
                 else:
                     conn.send(json.dumps({
                         "status": "failed"
