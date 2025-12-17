@@ -117,6 +117,8 @@ def launch_blackjack_ui():
     scheduled_restart_id = None
     # registration tracking: per-slot whether the human at that slot has "s'inscrit"
     registered_flags = [False] * MAX_PLAYERS
+    # display names entered by users for each slot (empty = use default "Joueur N")
+    player_display_names = [""] * MAX_PLAYERS
 
     # ---------- Images ----------
     def make_placeholder_image(name, size=CARD_IMG_SIZE):
@@ -265,11 +267,11 @@ def launch_blackjack_ui():
             player_hit_buttons[idx].config(state="disabled")
             player_stand_buttons[idx].config(state="disabled")
             return
-
-        # Registered slot: show player name and, if a game exists, the hand and result.
-        u = f"Joueur {idx+1}"
-        player_name_labels[idx].config(text=u)
-        st = player_states.get(u)
+        # Registered slot: show display name (entered by user) or default, and hand/result if a game exists.
+        key = f"Joueur {idx+1}"
+        display_name = player_display_names[idx] or key
+        player_name_labels[idx].config(text=display_name)
+        st = player_states.get(key)
         if st is None:
             # registered but no active game yet
             player_canvases[idx].delete("all")
@@ -462,23 +464,69 @@ def launch_blackjack_ui():
 
     # registration toggle for each slot
     def toggle_registration(slot_idx):
-        nonlocal registered_flags
+        nonlocal registered_flags, player_display_names
         # do not allow changing registration during an active game
         if game_in_progress:
             return
-        registered_flags[slot_idx] = not registered_flags[slot_idx]
+
         btn = player_register_buttons[slot_idx]
-        if registered_flags[slot_idx]:
-            btn.config(text="Désinscrire")
+        # If currently unregistered, open a small dialog to enter the player's name
+        if not registered_flags[slot_idx]:
+            popup = tk.Toplevel(root)
+            popup.title("S'inscrire")
+            popup.transient(root)
+            popup.grab_set()
+
+            tk.Label(popup, text="Nom du joueur:").pack(padx=10, pady=(10,0))
+            name_entry = tk.Entry(popup)
+            name_entry.pack(padx=10, pady=6)
+            name_entry.focus_set()
+
+            def on_ok():
+                name = name_entry.get().strip()
+                if not name:
+                    name = f"Joueur {slot_idx+1}"
+                player_display_names[slot_idx] = name
+                registered_flags[slot_idx] = True
+                btn.config(text="Désinscrire")
+                update_player_display(slot_idx)
+                try:
+                    start_btn.config(state=("normal" if any(registered_flags) else "disabled"))
+                except Exception:
+                    pass
+                popup.destroy()
+
+            def on_cancel():
+                popup.destroy()
+
+            bframe = tk.Frame(popup)
+            bframe.pack(pady=(0,10))
+            tk.Button(bframe, text="OK", width=8, command=on_ok).pack(side="left", padx=6)
+            tk.Button(bframe, text="Annuler", width=8, command=on_cancel).pack(side="left", padx=6)
+            # center popup over the main window
+            try:
+                popup.update_idletasks()
+                rx = root.winfo_rootx()
+                ry = root.winfo_rooty()
+                rw = root.winfo_width()
+                rh = root.winfo_height()
+                pw = popup.winfo_width()
+                ph = popup.winfo_height()
+                x = rx + (rw - pw) // 2
+                y = ry + (rh - ph) // 2
+                popup.geometry(f"+{x}+{y}")
+            except Exception:
+                pass
         else:
+            # unregister the slot
+            registered_flags[slot_idx] = False
+            player_display_names[slot_idx] = ""
             btn.config(text="S'inscrire")
-        update_player_display(slot_idx)
-        # enable/disable start button if present
-        try:
-            # start_btn may not be defined yet while frames are created; ignore if not available
-            start_btn.config(state=("normal" if any(registered_flags) else "disabled"))
-        except Exception:
-            pass
+            update_player_display(slot_idx)
+            try:
+                start_btn.config(state=("normal" if any(registered_flags) else "disabled"))
+            except Exception:
+                pass
 
     for i in range(MAX_PLAYERS):
         player_register_buttons[i].config(command=lambda i=i: toggle_registration(i))
