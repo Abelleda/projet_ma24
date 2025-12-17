@@ -398,7 +398,7 @@ def launch_blackjack_ui():
                 'result':""
             }
 
-            # ⬇️ Ajout important : Réactiver les boutons AVANT la nouvelle main
+            #  Ajout important : Réactiver les boutons AVANT la nouvelle main
             player_hit_buttons[i].config(state="normal")
             player_stand_buttons[i].config(state="normal")
 
